@@ -198,9 +198,46 @@ handle_exception:                                                       \
         /* some unhandlable exception occurred */                       \
   1:    ori TESTNUM, TESTNUM, 1337;                                     \
   write_tohost:                                                         \
-        sw TESTNUM, tohost, t5;                                         \
-        sw zero, tohost + 4, t5;                                        \
+        /* sw TESTNUM, tohost, t5; */                                   \
+        /* write the message */                                         \
+        la a0, tstr;                                                    \
+        li a1, 0x10000000;                                              \
+  2:    lbu a2, 0(a0);                                                  \
+        sb a2, 0(a1);                                                   \
+        addi a0, a0, 1;                                                 \
+        bnez a2, 2b;                                                    \
+        /* convert the test number */                                   \
+        mv a0, TESTNUM;                                                 \
+        srli a0, a0, 1;                                                 \
+        la a1, tnum;                                                    \
+        li a2, 10;                                                      \
+  2:    rem a4, a0, a2;                                                 \
+        div a0, a0, a2;                                                 \
+        addi a4, a4, '0';                                               \
+        sb a4, 0(a1);                                                   \
+        addi a1, a1, 1;                                                 \
+        bnez a0, 2b;                                                    \
+        /* print the number now */                                      \
+        la a0, tnum;                                                    \
+        li a4, 0x10000000;                                              \
+  2:    addi a1, a1, -1;                                                \
+        lbu a2, 0(a1);                                                  \
+        sb a2, 0(a4);                                                   \
+        bne a1, a0, 2b;                                                 \
+        /* final newline */                                             \
+        li a0, '\n';                                                    \
+        li a1, 0x10000000;                                              \
+        sb a0, 0(a1);                                                   \
+        /* power off */                                                 \
+        li a0, 0x5555;                                                  \
+        li a1, 0x100000;                                                \
+        sw a0, 0(a1);                                                   \
+  1:                                                                    \
+        j 1b;                                                           \
         j write_tohost;                                                 \
+  tstr: .string "Terminate with code: ";                                \
+  tnum: .skip 10; .byte 0;                                              \
+        .align 8;                                                       \
 reset_vector:                                                           \
         INIT_XREG;                                                      \
         RISCV_MULTICORE_DISABLE;                                        \
