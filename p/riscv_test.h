@@ -213,9 +213,41 @@ handle_exception:                                                       \
         /* some unhandlable exception occurred */                       \
   1:    ori TESTNUM, TESTNUM, 1337;                                     \
   write_tohost:                                                         \
-        sw TESTNUM, tohost, t5;                                         \
-        sw zero, tohost + 4, t5;                                        \
+        /* convert the test number */                                   \
+        srli a0, TESTNUM, 1;                                            \
+        la a1, tnum;                                                    \
+        mv a2, a1;                                                      \
+        li a3, 10;                                                      \
+        /* prepare newline at the end */                                \
+        li a4, '\n';                                                    \
+        sb a4, 0(a1);                                                   \
+        addi a1, a1, 1;                                                 \
+  2:    rem a4, a0, a3;                                                 \
+        div a0, a0, a3;                                                 \
+        addi a4, a4, '0';                                               \
+        sb a4, 0(a1);                                                   \
+        addi a1, a1, 1;                                                 \
+        bnez a0, 2b;                                                    \
+        /* print the number now */                                      \
+        li a0, 0x10000000;                                              \
+  2:    addi a1, a1, -1;                                                \
+        lb a3, 0(a1);                                                   \
+        /* wait for UART LSR ready */                                   \
+  1:    lb a4, 5(a0);                                                   \
+        andi a4, a4, 0x60;                                              \
+        beqz a4, 1b;                                                    \
+        /* put character */                                             \
+        sb a3, 0(a0);                                                   \
+        bne a1, a2, 2b;                                                 \
+        /* power off */                                                 \
+        li a0, 0x100000;                                                \
+        li a1, 0x5555;                                                  \
+        sw a1, 0(a0);                                                   \
+  1:    wfi;                                                            \
+        j 1b;                                                           \
         j write_tohost;                                                 \
+  tnum: .skip 16; .byte 0;                                              \
+        .align 8;                                                       \
 reset_vector:                                                           \
         INIT_XREG;                                                      \
         RISCV_MULTICORE_DISABLE;                                        \
